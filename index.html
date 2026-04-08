@@ -660,6 +660,7 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
       z-index:160;
       display:inline-flex;
       align-items:center;
+      justify-content:center;
       gap:10px;
       padding:12px 18px;
       border:none;
@@ -684,6 +685,14 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
       font-weight:800;
       opacity:.95;
     }
+    .return-main-fab i{
+      width:1.1em;
+      min-width:1.1em;
+      text-align:center;
+      flex:0 0 1.1em;
+      line-height:1;
+    }
+
 
 
     /* Loading */
@@ -1022,7 +1031,6 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
     <button v-if="canReturnToMain" class="return-main-fab" @click="returnToMainView" title="回到主視圖">
       <i class="fas fa-house"></i>
       <span>回主視圖</span>
-      <span class="sub">目前不是主視圖</span>
     </button>
 
     <!-- 右側面板 -->
