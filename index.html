@@ -490,6 +490,70 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
       font-weight:900;
     }
 
+
+
+    /* ------------------------------ */
+    /* Unified action menu            */
+    /* ------------------------------ */
+    .action-pop{
+      position:absolute;
+      left:50%;
+      top:calc(100% + 8px);
+      transform:translateX(-50%);
+      z-index:320;
+      min-width:126px;
+      background:#ffffff;
+      border:1px solid #dbe3ee;
+      border-radius:14px;
+      box-shadow:0 12px 28px rgba(15,23,42,.16);
+      padding:8px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .action-pop.spouse-menu{
+      top:calc(100% + 10px);
+      left:50%;
+      transform:translateX(-50%);
+    }
+    .action-pop-title{
+      font-size:.78rem;
+      font-weight:900;
+      color:var(--text);
+      line-height:1.2;
+      padding:2px 4px 4px;
+      border-bottom:1px solid #eef2f7;
+      margin-bottom:2px;
+      word-break:break-word;
+    }
+    .action-btn{
+      width:100%;
+      border:none;
+      border-radius:10px;
+      background:#f8fafc;
+      color:var(--text);
+      font-size:.84rem;
+      font-weight:800;
+      padding:8px 10px;
+      text-align:left;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .action-btn:hover{
+      background:#eff6ff;
+      color:var(--primary);
+    }
+    .action-btn.close{
+      background:#fff7ed;
+      color:#9a3412;
+    }
+    .action-btn.close:hover{
+      background:#ffedd5;
+      color:#9a3412;
+    }
+
     /* ------------------------------ */
     /* Left list panel                */
     /* ------------------------------ */
@@ -810,18 +874,18 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
           <path v-for="(ln,idx) in links" :key="'l'+idx" class="link" :class="{adoptive: ln.isAdoptive, spouseRef: ln.kind==='spouseRef'}" :d="ln.d"></path>
         </svg>
 
-        <div v-for="n in nodes" :key="n.id" class="node" :style="{left:n.x+'px', top:n.y+'px'}">
-          <div class="card" :data-nid="n.id" :class="cardClass(n)" :title="n.data.name + '（雙擊切換此人視角）'" @click.stop="selectNode(n)" @dblclick.stop="focusNodeView(n)">
+        <div v-for="n in nodes" :key="n.id" class="node" :data-owner-id="n.id" :style="{left:n.x+'px', top:n.y+'px'}">
+          <div class="card" :data-nid="n.id" :class="cardClass(n)" :title="n.data.name + '（點一下開啟操作）'" @click.stop="openNodeMenu(n)">
 
             <!-- 父母資訊小方框（橫式兩行；僅有資料才顯示） -->
             <div class="parents-box" v-if="lineageParentName(n.data,'father') || lineageParentName(n.data,'mother')">
               <div class="p-row" v-if="lineageParentName(n.data,'father')">
                 <span class="p-lbl">{{ lineageParentLabel(n.data,'father') }}：</span>
-                <span class="p-name">{{ lineageParentName(n.data,'father') }}</span>
+                <span class="p-name" :title="lineageParentName(n.data,'father') + '（點一下開啟操作）'" @click.stop="openLineageParentMenu(n.data,'father')">{{ lineageParentName(n.data,'father') }}</span>
               </div>
               <div class="p-row" v-if="lineageParentName(n.data,'mother')">
                 <span class="p-lbl">{{ lineageParentLabel(n.data,'mother') }}：</span>
-                <span class="p-name">{{ lineageParentName(n.data,'mother') }}</span>
+                <span class="p-name" :title="lineageParentName(n.data,'mother') + '（點一下開啟操作）'" @click.stop="openLineageParentMenu(n.data,'mother')">{{ lineageParentName(n.data,'mother') }}</span>
               </div>
             </div>
 
@@ -858,8 +922,15 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
               <div v-if="showSec(n.data,'bio')" class="sec-icon bio" :class="{active: secExpanded.has(n.id)}" @click.stop="toggleSec(n.id)" title="展開/收合 親生父母">親</div>
               <div v-if="showSec(n.data,'adopt')" class="sec-icon adopt" :class="{active: secExpanded.has(n.id)}" @click.stop="toggleSec(n.id)" title="展開/收合 養父母">養</div>
               <div v-if="secExpanded.has(n.id)" class="sec-expand">
-                <div v-for="p in secParents(n.data)" :key="p.id" class="sec-mini" :class="p.type" @click.stop="selectNode({id:p.id,data:p.raw})">{{ p.label }}: {{ p.name }}</div>
+                <div v-for="p in secParents(n.data)" :key="p.id" class="sec-mini" :class="p.type" @click.stop="openSecondaryParentMenu(n.id, p)" :title="p.name + '（點一下開啟操作）'">{{ p.label }}: {{ p.name }}</div>
               </div>
+            </div>
+
+            <div v-if="actionMenu.visible && actionMenu.anchor==='node' && actionMenu.nodeId===n.id" class="action-pop" @click.stop>
+              <div class="action-pop-title">{{ actionMenu.title || '請選擇操作' }}</div>
+              <button class="action-btn" @click.stop="showPersonInfoById(actionMenu.personId)"><i class="fas fa-circle-info"></i> 查看資訊</button>
+              <button class="action-btn" @click.stop="focusPersonByIdWithMenuClose(actionMenu.personId)"><i class="fas fa-diagram-project"></i> 以此人展開</button>
+              <button class="action-btn close" @click.stop="hideActionMenu()"><i class="fas fa-xmark"></i> 關閉</button>
             </div>
           </div>
 
@@ -871,21 +942,26 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
                  class="sp"
                  :data-spid="sp.id"
                  :class="spClass(sp)"
-                 @click.stop="toggleSpouseExpand(n.id, sp.id)"
-                 @dblclick.stop="focusPersonById(sp.id)"
+                 @click.stop="openSpouseMenu(n.id, sp)"
                  :title="spouseTitle(sp, si, n.spouses.length)">
               <i class="fas fa-heart" style="font-size:.7rem;"></i>
               <span class="sp-initial" style="margin-left:4px;">{{ sp.name ? sp.name[0] : '?' }}</span>
               <span v-if="sp.type==='matrilocal'" class="mz">贅</span>
               <span v-if="n.spouses.length>1" class="ord">{{ si+1 }}</span>
 
+              <div v-if="actionMenu.visible && actionMenu.anchor==='spouse' && actionMenu.nodeId===n.id && actionMenu.personId===sp.id" class="action-pop spouse-menu" @click.stop>
+                <div class="action-pop-title">{{ actionMenu.title || '請選擇操作' }}</div>
+                <button class="action-btn" @click.stop="showPersonInfoById(actionMenu.personId)"><i class="fas fa-circle-info"></i> 查看資訊</button>
+                <button class="action-btn" @click.stop="focusPersonByIdWithMenuClose(actionMenu.personId)"><i class="fas fa-diagram-project"></i> 以此人展開</button>
+                <button class="action-btn close" @click.stop="hideActionMenu()"><i class="fas fa-xmark"></i> 關閉</button>
+              </div>
+
               <!-- 展開：掛在對應泡泡下方（直式） -->
               <div v-if="isSpouseOpen(n.id, sp.id)" class="sp-pop">
                 <div class="sp-vmini"
                      :data-spid="sp.id"
                      :class="spClass(sp)"
-                     @click.stop="selectNode({id:sp.id,data:sp})"
-                     @dblclick.stop="focusPersonById(sp.id)"
+                     @click.stop="openSpouseMenu(n.id, sp)"
                      :title="spouseTitle(sp, si, n.spouses.length)">
                   <div class="sp-vname">{{ sp.name || '?' }}</div>
                   <div v-if="sp.type==='matrilocal'" class="sp-vmz">贅</div>
@@ -1816,6 +1892,7 @@ const canReturnToMain = computed(() => !!mainRootId.value && (focusMode.value ||
         const canvas = ref(null);
         const secExpanded = reactive(new Set());
         const spouseExpanded = reactive(new Map());
+        const actionMenu = reactive({ visible:false, anchor:'', nodeId:'', personId:'', title:'', key:'' });
         const lastNodeMap = ref(null); // cache latest maps for fast link recompute
 
         // view transform
@@ -1870,12 +1947,31 @@ const canReturnToMain = computed(() => !!mainRootId.value && (focusMode.value ||
           return role;
         };
 
-        const lineageParentName = (p, role) => {
+        const lineageParentId = (p, role) => {
           const par = getActiveParents(p);
-          const id = (role === 'father') ? par.father : (role === 'mother' ? par.mother : '');
+          return (role === 'father') ? par.father : (role === 'mother' ? par.mother : '');
+        };
+
+        const lineageParentName = (p, role) => {
+          const id = lineageParentId(p, role);
           if (!id) return '';
           const rec = raw.value.find(x => x.id === id);
           return rec?.name || '未知';
+        };
+
+        const selectLineageParent = (p, role) => {
+          const id = lineageParentId(p, role);
+          if (!id) return;
+          const rec = raw.value.find(x => x.id === id);
+          if (!rec) return;
+          selected.value = rec;
+          editMode.value = false;
+        };
+
+        const focusLineageParent = (p, role) => {
+          const id = lineageParentId(p, role);
+          if (!id) return;
+          focusPersonById(id);
         };
 
 
@@ -2652,6 +2748,7 @@ focusMode.value = false;
                 if (!it) return;
                 const pid = it.getAttribute('data-pid');
                 const p = id2p(pid);
+                hideActionMenu();
                 if (p) selectFromList(p);
               }, { passive: true });
             }
@@ -2660,31 +2757,98 @@ focusMode.value = false;
             if (canvasEl && !canvasEl.__boundCompact) {
               canvasEl.__boundCompact = true;
               canvasEl.addEventListener('click', (ev) => {
-                const card = ev.target && ev.target.closest && ev.target.closest('.card[data-nid]');
-                if (!card) return;
-                const nid = card.getAttribute('data-nid');
-                const n = (nodes.value || []).find(x => x.id === nid);
-                if (n) selectNode(n);
-              });
-              canvasEl.addEventListener('dblclick', (ev) => {
+                const insideAction = ev.target && ev.target.closest && ev.target.closest('.action-pop');
+                if (insideAction) return;
                 const spouse = ev.target && ev.target.closest && ev.target.closest('.sp[data-spid], .sp-vmini[data-spid]');
                 if (spouse) {
                   const sid = spouse.getAttribute('data-spid');
-                  if (sid) { focusPersonById(sid); return; }
+                  const ownerNode = spouse.closest('.node');
+                  const nid = ownerNode ? ownerNode.getAttribute('data-owner-id') || ownerNode.getAttribute('data-nid') || '' : '';
+                  const nodeId = nid || ((ownerNode && ownerNode.__vueParentComponent && ownerNode.__vueParentComponent.props && ownerNode.__vueParentComponent.props.n && ownerNode.__vueParentComponent.props.n.id) ? ownerNode.__vueParentComponent.props.n.id : '');
+                  const spRec = id2p(sid) || { id: sid, name: spouse.getAttribute('title') || '' };
+                  openSpouseMenu(nodeId, spRec);
+                  return;
                 }
                 const card = ev.target && ev.target.closest && ev.target.closest('.card[data-nid]');
-                if (!card) return;
-                const nid = card.getAttribute('data-nid');
-                const n = (nodes.value || []).find(x => x.id === nid);
-                if (n) focusNodeView(n);
+                if (card) {
+                  const nid = card.getAttribute('data-nid');
+                  const n = (nodes.value || []).find(x => x.id === nid);
+                  if (n) { openNodeMenu(n); return; }
+                }
+                hideActionMenu();
               });
+              document.addEventListener('click', (ev) => {
+                const insideUi = ev.target && ev.target.closest && ev.target.closest('.action-pop, .card, .sp, .sp-vmini, .sec-mini, .p-name, .sec-icon, .panel, .list');
+                if (!insideUi) hideActionMenu();
+              }, true);
             }
           } catch (e) {
             console.warn('[bindClickDelegates] failed:', e);
           }
         };
 
-        const closePanel = () => { selected.value = null; editMode.value = false; pendingFiles.value = []; };
+        const hideActionMenu = () => {
+          actionMenu.visible = false;
+          actionMenu.anchor = '';
+          actionMenu.nodeId = '';
+          actionMenu.personId = '';
+          actionMenu.title = '';
+          actionMenu.key = '';
+        };
+
+        const openActionMenu = ({ anchor='node', nodeId='', personId='', title='', key='' }) => {
+          if (!personId) return;
+          const nextKey = key || `${anchor}:${nodeId || 'global'}:${personId}`;
+          if (actionMenu.visible && actionMenu.key === nextKey) {
+            hideActionMenu();
+            return;
+          }
+          actionMenu.visible = true;
+          actionMenu.anchor = anchor;
+          actionMenu.nodeId = nodeId || '';
+          actionMenu.personId = personId || '';
+          actionMenu.title = title || '';
+          actionMenu.key = nextKey;
+        };
+
+        const showPersonInfoById = (pid) => {
+          const p = raw.value.find(x => x.id === pid);
+          if (!p) return;
+          selected.value = p;
+          editMode.value = false;
+          pendingFiles.value = [];
+          hideActionMenu();
+        };
+
+        const openNodeMenu = (node) => {
+          const pid = node && node.id ? node.id : '';
+          const p = raw.value.find(x => x.id === pid) || (node && node.data ? node.data : null);
+          if (!p || !pid) return;
+          openActionMenu({ anchor:'node', nodeId:pid, personId:pid, title:p.name || '', key:`node:${pid}` });
+        };
+
+        const openLineageParentMenu = (nodePerson, role) => {
+          const pid = lineageParentId(nodePerson, role);
+          if (!pid) return;
+          openActionMenu({ anchor:'node', nodeId:nodePerson.id || '', personId:pid, title:lineageParentName(nodePerson, role) || '', key:`lineage:${nodePerson.id || ''}:${role}:${pid}` });
+        };
+
+        const openSecondaryParentMenu = (nodeId, parentItem) => {
+          if (!parentItem || !parentItem.id) return;
+          openActionMenu({ anchor:'node', nodeId:nodeId || '', personId:parentItem.id, title:parentItem.name || '', key:`secondary:${nodeId || ''}:${parentItem.id}` });
+        };
+
+        const openSpouseMenu = (nodeId, spouse) => {
+          if (!spouse || !spouse.id) return;
+          openActionMenu({ anchor:'spouse', nodeId:nodeId || '', personId:spouse.id, title:spouse.name || '', key:`spouse:${nodeId || ''}:${spouse.id}` });
+        };
+
+        const focusPersonByIdWithMenuClose = (pid, options = { closeList: false }) => {
+          hideActionMenu();
+          focusPersonById(pid, options);
+        };
+
+        const closePanel = () => { selected.value = null; editMode.value = false; pendingFiles.value = []; hideActionMenu(); };
 
         const setRoot = (id) => { rootId.value = id; refreshLayout(); centerView(); };
 
@@ -3416,7 +3580,7 @@ if (!p.is_adopted) {
           loading, nodes, links, canvas, canvasSize, worldWrapStyle, worldStyle,
           showList, q, filtered, search, filteredPeople, selected, editMode, saving,
           focusMode, focusTopRoots, canReturnToMain,
-          rootId, secExpanded, spouseExpanded,
+          rootId, secExpanded, spouseExpanded, actionMenu,
           bioPeek, openBioPeek, closeBioPeek,
           // helpers
           id2p,
@@ -3426,6 +3590,7 @@ if (!p.is_adopted) {
           lineageParentName,
           cardClass, spClass, spouseStyle,
           showSec, toggleSec, toggleSpouseExpand, isSpouseOpen, spouseTitle, secParents,
+          hideActionMenu, showPersonInfoById, openNodeMenu, openLineageParentMenu, openSecondaryParentMenu, openSpouseMenu, focusPersonByIdWithMenuClose,
           // view
           startPan, onWheel, zoomIn, zoomOut, resetView,
           // selection/panel
