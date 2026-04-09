@@ -2774,8 +2774,8 @@ focusMode.value = false;
             centerView();
           }
         };
-        const selectFromList = (p) => {
-          // list click = change whole view to this person's full lineage (up+down)
+        const focusPersonView = (p, opts = {}) => {
+          if (!p || !p.id) return;
           const pid = p.id;
           const pp = id2p(pid) || p;
           selectNode({ id: pid, data: pp });
@@ -2787,21 +2787,32 @@ focusMode.value = false;
           rootId.value = (tops.length > 1) ? VROOT_ID : (tops[0] || pid);
           refreshLayout();
           centerView();
-          // Ensure the right panel always shows the person you clicked (even for matrilocal/inverted spouse layouts)
-          selected.value = id2p(pid) || pp;
-          // close list after choosing
-          showList.value = false;
+
+          const showInfo = !!opts.showInfo;
+          if (showInfo) {
+            selected.value = id2p(pid) || pp;
+          } else {
+            selected.value = null;
+            editMode.value = false;
+            pendingFiles.value = [];
+          }
+
+          if (opts.closeList) showList.value = false;
         };
-        const focusPersonById = (pid) => {
+        const selectFromList = (p) => {
+          // list click = change whole view to this person's full lineage (up+down)
+          focusPersonView(p, { closeList: true, showInfo: false });
+        };
+        const focusPersonById = (pid, options = { closeList: false, showInfo: false }) => {
           if (!pid) return;
           const p = id2p(pid);
           if (!p) return;
-          selectFromList(p);
+          focusPersonView(p, options || { closeList: false, showInfo: false });
         };
 
         const focusNodeView = (n) => {
           if (!n || !n.id) return;
-          focusPersonById(n.id);
+          focusPersonById(n.id, { closeList: false, showInfo: false });
         };
 
         const bindClickDelegates = () => {
@@ -2916,7 +2927,7 @@ focusMode.value = false;
           hideActionMenu();
         };
 
-        const focusPersonByIdWithMenuClose = (pid, options = { closeList: false }) => {
+        const focusPersonByIdWithMenuClose = (pid, options = { closeList: false, showInfo: false }) => {
           hideActionMenu();
           focusPersonById(pid, options);
         };
