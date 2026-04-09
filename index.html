@@ -512,9 +512,10 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
       gap:6px;
     }
     .action-pop.spouse-menu{
-      top:calc(100% + 10px);
+      top:calc(100% + 8px);
       left:50%;
       transform:translateX(-50%);
+      z-index:330;
     }
     .action-pop-title{
       font-size:.78rem;
@@ -916,7 +917,7 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
           <path v-for="(ln,idx) in links" :key="'l'+idx" class="link" :class="{adoptive: ln.isAdoptive, spouseRef: ln.kind==='spouseRef'}" :d="ln.d"></path>
         </svg>
 
-        <div v-for="n in nodes" :key="n.id" class="node" :data-owner-id="n.id" :style="{left:n.x+'px', top:n.y+'px'}">
+        <div v-for="n in nodes" :key="n.id" class="node" :class="{'spouse-open': hasOpenSpouse(n.id)}" :data-owner-id="n.id" :style="{left:n.x+'px', top:n.y+'px'}">
           <div class="card" :data-nid="n.id" :class="cardClass(n)" :title="n.data.name + '（點一下開啟操作）'" @click.stop="openNodeMenu(n)">
 
             <!-- 父母資訊小方框（橫式兩行；僅有資料才顯示） -->
@@ -984,19 +985,13 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
                  class="sp"
                  :data-spid="sp.id"
                  :class="spClass(sp)"
-                 @click.stop="openSpouseMenu(n.id, sp)"
+                 @click.stop="toggleSpouseExpand(n.id, sp.id); hideActionMenu()"
+                 @dblclick.stop="focusPersonById(sp.id)"
                  :title="spouseTitle(sp, si, n.spouses.length)">
               <i class="fas fa-heart" style="font-size:.7rem;"></i>
               <span class="sp-initial" style="margin-left:4px;">{{ sp.name ? sp.name[0] : '?' }}</span>
               <span v-if="sp.type==='matrilocal'" class="mz">贅</span>
               <span v-if="n.spouses.length>1" class="ord">{{ si+1 }}</span>
-
-              <div v-if="actionMenu.visible && actionMenu.anchor==='spouse' && actionMenu.nodeId===n.id && actionMenu.personId===sp.id" class="action-pop spouse-menu" @click.stop>
-                <div class="action-pop-title">{{ actionMenu.title || '請選擇操作' }}</div>
-                <button class="action-btn" @click.stop="showPersonInfoById(actionMenu.personId)"><i class="fas fa-circle-info"></i> 查看資訊</button>
-                <button class="action-btn" @click.stop="focusPersonByIdWithMenuClose(actionMenu.personId)"><i class="fas fa-diagram-project"></i> 以此人展開</button>
-                <button class="action-btn close" @click.stop="hideActionMenu()"><i class="fas fa-xmark"></i> 關閉</button>
-              </div>
 
               <!-- 展開：掛在對應泡泡下方（直式） -->
               <div v-if="isSpouseOpen(n.id, sp.id)" class="sp-pop">
@@ -1007,6 +1002,13 @@ async function syncSpousesBidirectional(inst, selfId, oldSpouses, newSpouses) {
                      :title="spouseTitle(sp, si, n.spouses.length)">
                   <div class="sp-vname">{{ sp.name || '?' }}</div>
                   <div v-if="sp.type==='matrilocal'" class="sp-vmz">贅</div>
+                </div>
+
+                <div v-if="actionMenu.visible && actionMenu.anchor==='spouse' && actionMenu.nodeId===n.id && actionMenu.personId===sp.id" class="action-pop spouse-menu" @click.stop>
+                  <div class="action-pop-title">{{ actionMenu.title || '請選擇操作' }}</div>
+                  <button class="action-btn" @click.stop="showPersonInfoById(actionMenu.personId)"><i class="fas fa-circle-info"></i> 查看資訊</button>
+                  <button class="action-btn" @click.stop="focusPersonByIdWithMenuClose(actionMenu.personId)"><i class="fas fa-diagram-project"></i> 以此人展開</button>
+                  <button class="action-btn close" @click.stop="hideActionMenu()"><i class="fas fa-xmark"></i> 關閉</button>
                 </div>
               </div>
             </div>
@@ -2134,6 +2136,11 @@ const canReturnToMain = computed(() => !!mainRootId.value && (focusMode.value ||
           return !!(set && set.has(spouseId));
         };
 
+        const hasOpenSpouse = (nodeId) => {
+          const set = spouseExpanded.get(nodeId);
+          return !!(set && set.size);
+        };
+
         const toggleSpouseExpand = (nodeId, spouseId) => {
           const cur = spouseExpanded.get(nodeId) || new Set();
           if (cur.has(spouseId)) cur.delete(spouseId);
@@ -2813,7 +2820,8 @@ focusMode.value = false;
                   const nid = ownerNode ? ownerNode.getAttribute('data-owner-id') || ownerNode.getAttribute('data-nid') || '' : '';
                   const nodeId = nid || ((ownerNode && ownerNode.__vueParentComponent && ownerNode.__vueParentComponent.props && ownerNode.__vueParentComponent.props.n && ownerNode.__vueParentComponent.props.n.id) ? ownerNode.__vueParentComponent.props.n.id : '');
                   const spRec = id2p(sid) || { id: sid, name: spouse.getAttribute('title') || '' };
-                  openSpouseMenu(nodeId, spRec);
+                  if (spouse.classList && spouse.classList.contains('sp-vmini')) openSpouseMenu(nodeId, spRec);
+                  else handleSpouseBubbleClick(nodeId, spRec);
                   return;
                 }
                 const card = ev.target && ev.target.closest && ev.target.closest('.card[data-nid]');
@@ -2888,6 +2896,12 @@ focusMode.value = false;
         const openSpouseMenu = (nodeId, spouse) => {
           if (!spouse || !spouse.id) return;
           openActionMenu({ anchor:'spouse', nodeId:nodeId || '', personId:spouse.id, title:spouse.name || '', key:`spouse:${nodeId || ''}:${spouse.id}` });
+        };
+
+        const handleSpouseBubbleClick = (nodeId, spouse) => {
+          if (!spouse || !spouse.id) return;
+          toggleSpouseExpand(nodeId, spouse.id);
+          hideActionMenu();
         };
 
         const focusPersonByIdWithMenuClose = (pid, options = { closeList: false }) => {
@@ -3636,7 +3650,7 @@ if (!p.is_adopted) {
           lineageParentLabel,
           lineageParentName,
           cardClass, spClass, spouseStyle,
-          showSec, toggleSec, toggleSpouseExpand, isSpouseOpen, spouseTitle, secParents,
+          showSec, toggleSec, toggleSpouseExpand, isSpouseOpen, hasOpenSpouse, spouseTitle, secParents,
           hideActionMenu, showPersonInfoById, openNodeMenu, openLineageParentMenu, openSecondaryParentMenu, openSpouseMenu, focusPersonByIdWithMenuClose,
           // view
           startPan, onWheel, zoomIn, zoomOut, resetView,
