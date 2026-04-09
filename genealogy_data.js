@@ -3976,7 +3976,7 @@ window.GENEALOGY_DATA = {
       "gender": "F",
       "id": "v32fyalj9ld0170",
       "is_adopted": true,
-      "name": "蘇蔡𪋞",
+      "name": "蘇蔡鸝",
       "parent_branch_show": {
         "father": true,
         "mother": true
